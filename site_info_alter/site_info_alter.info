@@ -1,0 +1,4 @@
+name = Site Information Alter
+description = "Provides textfield for \"Site Api Key\" and provides a URL for JSON representation for \"Page\" type content in a specific URL format"
+package = custom
+core = 7.x

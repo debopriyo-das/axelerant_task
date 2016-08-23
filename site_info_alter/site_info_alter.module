@@ -1,0 +1,142 @@
+<?php
+/******************************************************************************************
+ * Function/Method             : site_info_alter_menu
+ * Function Description        : implementation of hook_menu
+ * File                        : site_info_alter.module
+ * Arguments                   :
+ *                 INPUT       : N.A
+ *                 OUTPUT      : N.A
+ *                 INPUT/OUTPUT: N.A
+ * Globals affected            : N.A
+ * Return Value                : $items| array
+ * Assumptions                 : N.A
+ * Creation Date               : 23rd august 2016
+ * Author                      : Debopriyo Das
+ * Note                        : N.A
+ ******************************************************************************************/
+function site_info_alter_menu()
+{ 
+	$items['page_json/%/%node'] = array(
+		'page callback' => 'node_to_json_endpoint',
+		'page arguments' => array(2),
+		'access arguments' => array('access content'),
+	);
+	return $items;
+}
+/******************************************************************************************
+ * Function/Method             : node_to_json_endpoint
+ * Function Description        : Call back Function for menu item [page_json/%/%node]
+ * File                        : site_info_alter.module
+ * Arguments                   :
+ *                 INPUT       : $node, arg(1)
+ *                 OUTPUT      : N.A
+ *                 INPUT/OUTPUT: N.A
+ * Globals affected            : N.A
+ * Return Value                : $output | JSON object
+ * Assumptions                 : N.A
+ * Creation Date               : 23rd august 2016
+ * Author                      : Debopriyo Das
+ * Note                        : N.A
+ ******************************************************************************************/
+function node_to_json_endpoint($node)
+{ 
+	//Checking for node type and verifying siteapikey.
+	if($node->type=='page' && arg(1)==variable_get('siteapikey'))
+	{
+		//Generating JSON output for the node.
+		GLOBAL $base_url;
+		$node_url = $base_url.'/node/'.$node->nid;
+		$output = '';
+		$output .= t('<h2>JSON endpoint for node !node</h2>',array('!node' => l($node->title,$node_url)));
+		$output .= drupal_json_encode($node);
+		echo $output;
+		drupal_exit();
+	}
+	else
+	{
+		//If node is not of type "Page" or siteapikey is invalid then throw "Access denied" error.
+		drupal_access_denied();
+	}
+} 
+/******************************************************************************************
+ * Function/Method             : site_info_alter_form_system_site_information_settings_alter
+ * Function Description        : Implementation of hook_form_form_id_alter for site_information_settings form
+ * File                        : site_info_alter.module
+ * Arguments                   :
+ *                 INPUT       : &$form, $form_state, $form_id
+ *                 OUTPUT      : N.A
+ *                 INPUT/OUTPUT: N.A
+ * Globals affected            : N.A
+ * Return Value                : N.A
+ * Assumptions                 : N.A
+ * Creation Date               : 23rd august 2016
+ * Author                      : Debopriyo Das
+ * Note                        : N.A
+ ******************************************************************************************/
+function site_info_alter_form_system_site_information_settings_alter(&$form, $form_state, $form_id)
+{
+	//Custom textfield for Site API Key.
+	$form['site_information']['siteapikey'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Site API Key'),
+		'#default_value' => variable_get('siteapikey', 'No API Key yet'),
+	);
+	//Altering submit button label to "Update Configuration" after saving siteapikey.
+	if (variable_get('siteapikey'))
+	{
+	$form['actions']['submit']['#value'] = t('Update Configuration');
+	}
+	//Custom validation handler.
+	$form['#validate'][] = 'site_info_form_custom_validate';
+	//Custom Submit handler.
+	$form['#submit'][] = 'site_info_form_custom_submit';
+}
+/******************************************************************************************
+ * Function/Method             : site_info_form_custom_validate
+ * Function Description        : Custom validation handler for site_information_settings form
+ * File                        : site_info_alter.module
+ * Arguments                   :
+ *                 INPUT       : $form, &$form_state
+ *                 OUTPUT      : N.A
+ *                 INPUT/OUTPUT: N.A
+ * Globals affected            : N.A
+ * Return Value                : N.A
+ * Assumptions                 : N.A
+ * Creation Date               : 23rd august 2016
+ * Author                      : Debopriyo Das
+ * Note                        : N.A
+ ******************************************************************************************/
+function site_info_form_custom_validate($form, &$form_state)
+{
+	//Trimming sanitizing the value of Site API Key field.
+	$form_state['values']['siteapikey'] = filter_xss_admin(trim($form_state['values']['siteapikey']));
+}
+/******************************************************************************************
+ * Function/Method             : site_info_form_custom_submit
+ * Function Description        : Custom submit handler for site_information_settings form
+ * File                        : site_info_alter.module
+ * Arguments                   :
+ *                 INPUT       : $form, &$form_state
+ *                 OUTPUT      : N.A
+ *                 INPUT/OUTPUT: N.A
+ * Globals affected            : N.A
+ * Return Value                : N.A
+ * Assumptions                 : N.A
+ * Creation Date               : 23rd august 2016
+ * Author                      : Debopriyo Das
+ * Note                        : N.A
+ ******************************************************************************************/
+function site_info_form_custom_submit($form, &$form_state)
+{
+	$new_api_key = (strlen($form_state['values']['siteapikey'])>1?$form_state['values']['siteapikey']:'');
+	//Reading default value of Site API Key field while the form was loaded.
+	$existing_api_key = ((strlen($form['site_information']['siteapikey']['#default_value'])>1 )?$form['site_information']['siteapikey']['#default_value']:'');
+	//Saving the value only if the user has provided different value.
+	if($new_api_key != $existing_api_key )
+	{
+		variable_set('siteapikey',$new_api_key );
+		$message = ((strlen($new_api_key)>1)?"Site API Key with value '". $new_api_key . "' has been created":'Site API Key has been removed');
+		drupal_set_message($message, $type = 'status');
+	}
+}
+
